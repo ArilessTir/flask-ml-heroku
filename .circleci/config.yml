@@ -1,0 +1,60 @@
+version: 2.1
+
+jobs:
+  build:
+    working_directory: ~/project
+    docker:
+      - image: circleci/python:3.8
+    steps:
+      - checkout
+      - run:
+          name: Install Python dependencies
+          command: |
+            python -m venv venv
+            source ./venv/bin/activate
+            pip install -r requirements.txt
+      - persist_to_workspace:
+          root: ~/project
+          paths:
+            - .
+  test:
+    working_directory: ~/project
+    docker:
+      - image: circleci/python:3.8
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ~/project
+      - run:
+          name: Run unit tests
+          command: |
+            source ./venv/bin/activate
+            python test.py --verbose
+
+  deploy:
+    working_directory: ~/project
+    docker:
+        - image: circleci/python:3.8
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ~/project
+      - run:
+          name: Deploy main to Heroku
+          command: |
+            git push https://heroku:$HEROKU_API_KEY@git.heroku.com/$HEROKU_APP_NAME.git main
+
+
+workflows:
+  build_test:
+    jobs:
+      - build
+      - test:
+          requires:
+            - build
+      - deploy:
+          requires:
+            - test
+          filters:
+            branches:
+              only: main
